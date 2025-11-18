@@ -1,6 +1,7 @@
 ﻿using System.Text;
 
-//RunOnTestData();
+RunOnTestData();
+Console.WriteLine();
 await RunOnRealDataAsync();
 
 // ==========================================
@@ -8,7 +9,7 @@ await RunOnRealDataAsync();
 static void RunOnTestData()
 {
     Console.WriteLine("Test Data analysis:");
-    int[][] testInput =
+    int[][] input =
     {
         [7, 6, 4, 2, 1],
         [1, 2, 7, 8, 9],
@@ -17,17 +18,24 @@ static void RunOnTestData()
         [8, 6, 4, 4, 1],
         [1, 3, 6, 7, 9],
     };
-    var testOutput = CalculateNumberOfSafeReports(testInput);
-    Console.WriteLine($"Number of safe reports: {testOutput}");
+    var output = CalculateNumberOfSafeReports(input);
+    Console.WriteLine($"Number of safe reports: {output}");
+
+    var outputWithProblemDampeners = CalculateNumberOfSafeReports(input, true);
+    Console.WriteLine($"Number of safe reports with Problem Dampeners on: {outputWithProblemDampeners}");
 }
 
 static async Task RunOnRealDataAsync()
 {
     Console.WriteLine("Real Data analysis:");
     var fileContent = await ReadFileAsync("../../../input.txt");
-    var inputData = ConvertFileInputToData(fileContent);
-    var output = CalculateNumberOfSafeReports(inputData);
+    var input = ConvertFileInputToData(fileContent);
+
+    var output = CalculateNumberOfSafeReports(input);
     Console.WriteLine($"Number of safe reports: {output}");
+
+    var outputWithProblemDampeners = CalculateNumberOfSafeReports(input, true);
+    Console.WriteLine($"Number of safe reports with Problem Dampeners on: {outputWithProblemDampeners}");
 }
 
 // ==========================================
@@ -57,57 +65,60 @@ static int[][] ConvertFileInputToData(string input)
 
 // ==========================================
 
-static int CalculateNumberOfSafeReports(int[][] testInput)
+static int CalculateNumberOfSafeReports(int[][] testInput, bool isDampenerOn = false)
 {
     var numberOfSafeReports = 0;
     foreach (var report in testInput)
     {
-        var orderType = GetOrderType(report);
-        if (!IsOrderly(report, orderType)) continue;
-        numberOfSafeReports++;
+        if (IsReportSafe(report))
+        {
+            numberOfSafeReports++;
+            continue;
+        }
+
+        if (isDampenerOn)
+        {
+            for (var i = 0; i < report.Length; i++)
+            {
+                var modifiedReport = report.ToList();
+                modifiedReport.RemoveAt(i);
+                if (IsReportSafe(modifiedReport.ToArray()))
+                {
+                    numberOfSafeReports++;
+                    break;
+                }
+            }
+        }
     }
 
     return numberOfSafeReports;
 }
 
-static int GetOrderType(int[] levels)
+static bool IsReportSafe(int[] levels)
 {
-    var output = 0;
-    for (var i = 1; i < levels.Length; i++)
-    {
-        if (levels[i] < levels[i - 1] && output != 1)
-        {
-            output = -1;
-        } 
-        else if (levels[i] > levels[i - 1] && output != -1)
-        {
-            output = 1;
-        } else
-        {
-            return 0;
-        }
-    }
-    return output;
-}
+    var orderDirection = 0;
+    var orderSet = false;
 
-static bool IsOrderly(int[] levels, int orderType)
-{
-    if(orderType == 0) { return false; }
-    else if (orderType == 1)
+    for (var i = 0; i < levels.Length - 1; i++)
     {
-        for (var i = 1; i < levels.Length; i++)
+        var current = levels[i];
+        var next = levels[i + 1];
+        var difference = next - current;
+
+        if (!orderSet)
         {
-            var difference = levels[i] - levels[i - 1];
-            if (difference < 1 || difference > 3) return false;
+            orderSet = true;
+            if (difference < 0) orderDirection = -1;
+            else if (difference > 0) orderDirection = 1;
         }
-    }
-    else if(orderType == -1)
-    {
-        for (var i = 1; i < levels.Length; i++)
+        else
         {
-            var difference = levels[i - 1] - levels[i];
-            if (difference < 1 || difference > 3) return false;
+            if ((difference < 0 && orderDirection == 1) || (difference > 0 && orderDirection == -1)) return false;
         }
+
+        difference = Math.Abs(difference);
+
+        if (difference < 1 || difference > 3) return false;
     }
 
     return true;
